@@ -1,0 +1,48 @@
+name: Build Erosion IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Build fixed AirliftFFI
+        working-directory: AirliftFFI-Source
+        run: ./build-ios.sh
+
+      - name: Replace Erosion AirliftFFI framework
+        run: |
+          rm -rf External/AirliftFFI.xcframework
+          cp -R AirliftFFI-Source/AirliftFFI.xcframework External/AirliftFFI.xcframework
+
+      - name: Make build script executable
+        run: chmod +x ipabuild.sh
+
+      - name: Build IPA
+        run: ./ipabuild.sh
+
+      - name: Find IPA
+        run: |
+          echo "=== IPA files ==="
+          find . -type f -name "*.ipa" -print
+
+      - name: Verify IPA exists
+        run: |
+          if ! find . -type f -name "*.ipa" | grep -q .; then
+            echo "ERROR: No IPA was produced!"
+            exit 1
+          fi
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Erosion-IPA
+          path: "**/*.ipa"
+          if-no-files-found: error
